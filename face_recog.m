@@ -1,10 +1,26 @@
-function [test_person,closest_match,knn_match] = face_recog(gnd,fea,s,l,r,k)
+function [test_person,closest_match,knn_match] = face_recog(gnd,fea,p,l,r,k)
 
 % Inputs
 % gnd & fea: data
-% s: index of test image corresponding to fea
+% p: number of people in training set
 % l: number of pictures of each person in training set
-% r: dimension of space spanned by eigenvector of X*X'
+% r: dimension of space spanned by eigenvector of X*X'(length of feature vector)
+% k: number of nearest neighbours in knnsearch
+
+% Outputs
+% test_person: person number of randomly chosen test image. The person to
+% which this face belongs to is in the training set, however the test image
+% face is not in the training set.
+% closest_match: person number of closest match
+% knn_match: person number of k-NN match
+%
+%
+% Inputs
+% gnd & fea: data
+% s: index of test image corresponding to fea
+% p: number of people in training set
+% l: number of pictures of each person in training set
+% r: dimension of space spanned by eigenvector of X*X'(length of feature vector)
 % k: number of nearest neighbours in knnsearch
 
 % Outputs
@@ -12,14 +28,14 @@ function [test_person,closest_match,knn_match] = face_recog(gnd,fea,s,l,r,k)
 % closest_match: person number of closest match
 % knn_match: person number of k-NN match
 
-
-elem = choice_elem(gnd,l);  % Retrieve row numbers of gnd required for training set
+[elem,random_test] = choice_test_ppl(p,l,gnd);  % Retrieve row numbers of gnd required for training set
 X = fea(elem,:);            % Retrieve training set X
 X = X';
 L = size(X);                % Size of training set m
 m = L(2);
 
-test_person = gnd(s);        % Person number of test image
+s = random_test;
+test_person = gnd(s);       % Person number of test image
 Y = fea(s,:);               % Retrieve test image
 Y = Y';
 
@@ -37,18 +53,18 @@ Yc = Y;
 Xf = Vx'*Xc;                % Project X into space spanned by V1
 % Xf = Dx.^(-1/2)*Vx'*Yc;   % Whitening 
 Xf = flipud(Xf);
-Xf = Xf(1:r,:);     
+Xf = Xf(3:r+2,:);     
 Xf = Xf';
 
 Yf = Vx'*Yc;                % Project Y into space spanned by V1
 % Yf = Dy.^(-1/2)*Vy'*Yc;   % Whitening 
 Yf = flipud(Yf);
-Yf = Yf(1:r,:);
+Yf = Yf(3:r+2,:);
 Yf = Yf';
 
-[matching_pics,dis] = knnsearch(Xf,Yf,'k',k,'distance','euclidean'); % Knn search
+[matching_pics,dis] = knnsearch(Xf,Yf,'k',k,'distance','seuclidean'); % Knn search
 
-matching_people = gnd(matching_pics)';  % person numbers of k closest faces
+matching_people = gnd(elem(matching_pics))';  % person numbers of k closest faces
 
 [M,F,H] = mode(matching_people);    % mode of matching people
 H = cell2mat(H);
@@ -67,13 +83,14 @@ subplot(1,3,1)
 imshow(I1)
 title('Test Face')
 
-B = reshape(fea(matching_pics(1),:),[32 32]);        % Show image of closest matching face
+B = reshape(fea(elem(matching_pics(1)),:),[32 32]);        % Show image of closest matching face
 I2 = mat2gray(B); 
 subplot(1,3,2)
 imshow(I2)
 title('Closest Match')
 
-C = reshape(fea(matching_pics(Locb(1)),:),[32 32]);  % Show image of person with knn match
+C = reshape(fea(elem(matching_pics(Locb(1))),:),[32 32]);  % Show image of person with knn match
+% Note that we show the closest matching face of the knn matching person
 I3 = mat2gray(C); 
 subplot(1,3,3)
 imshow(I3)
